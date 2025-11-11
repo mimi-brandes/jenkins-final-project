@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:18-alpine'   // משתמש ב-image עם Node.js מובנה
-            args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock' // מאפשר להריץ docker commands
-        }
-    }
+    agent any
 
     environment {
         APP_NAME = "jenkins-demo-app"
@@ -18,6 +13,18 @@ pipeline {
             steps {
                 echo '📥 Checking out code from Git...'
                 checkout scm
+            }
+        }
+
+        stage('Install Node.js') {
+            steps {
+                echo '💻 Installing Node.js on Agent...'
+                sh '''
+                curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+                apt-get install -y nodejs
+                node -v
+                npm -v
+                '''
             }
         }
 
@@ -45,15 +52,6 @@ pipeline {
             }
         }
 
-        stage('Test Docker Image') {
-            steps {
-                echo '🧪 Testing Docker image...'
-                script {
-                    sh "docker images | grep ${DOCKER_IMAGE}"
-                }
-            }
-        }
-
         stage('Deploy') {
             steps {
                 echo '🚀 Deploying application...'
@@ -61,10 +59,10 @@ pipeline {
                     sh '''
                         docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
                         docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
+                        docker run -d --name ${CONTAINER_NAME} -p 3000:3000 ${DOCKER_IMAGE}:${BUILD_TAG}
+                        sleep 5
+                        curl -f http://localhost:3000/health || exit 1
                     '''
-                    sh "docker run -d --name ${CONTAINER_NAME} -p 3000:3000 ${DOCKER_IMAGE}:${BUILD_TAG}"
-                    sh 'sleep 5'
-                    sh 'curl -f http://localhost:3000/health || exit 1'
                 }
             }
         }
@@ -72,11 +70,10 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 echo '✅ Verifying deployment...'
-                script {
-                    sh "docker ps | grep ${CONTAINER_NAME}"
-                    sh 'curl -s http://localhost:3000 | grep "Jenkins CI/CD Demo"'
-                    echo '✅ Application is running successfully!'
-                }
+                sh '''
+                    docker ps | grep ${CONTAINER_NAME}
+                    curl -s http://localhost:3000 | grep "Jenkins CI/CD Demo"
+                '''
             }
         }
     }
@@ -92,18 +89,14 @@ pipeline {
         }
         failure {
             echo '❌ Pipeline failed! Check the logs above.'
-            script {
-                sh "docker stop ${CONTAINER_NAME} 2>/dev/null || true"
-                sh "docker rm ${CONTAINER_NAME} 2>/dev/null || true"
-            }
+            sh "docker stop ${CONTAINER_NAME} 2>/dev/null || true"
+            sh "docker rm ${CONTAINER_NAME} 2>/dev/null || true"
         }
         always {
             echo 'Cleaning up old images...'
-            script {
-                sh '''
-                    docker images | grep ${DOCKER_IMAGE} | grep -v latest | grep -v ${BUILD_TAG} | awk '{print $3}' | xargs -r docker rmi -f || true
-                '''
-            }
+            sh '''
+                docker images | grep ${DOCKER_IMAGE} | grep -v latest | grep -v ${BUILD_TAG} | awk '{print $3}' | xargs -r docker rmi -f || true
+            '''
         }
     }
 }
