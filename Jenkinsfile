@@ -176,33 +176,30 @@ pipeline {
         }
 
         stage('Deploy') {
-            steps {
-                echo '🚀 Deploying application...'
-                script {
-                    // עצירת containers קיימים
-                    sh '''
-                        docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
-                        docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
-                    '''
+    steps {
+        echo '🚀 Deploying application...'
+        script {
+            sh '''
+                docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
+                docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
+            '''
+            sh "docker run -d --name ${CONTAINER_NAME} -p ${PORT_EXTERNAL}:3000 jenkins-demo-app:35"
 
-                    // הרצת container חדש
-                    sh "docker run -d --name ${CONTAINER_NAME} -p ${PORT_EXTERNAL}:3000 ${DOCKER_IMAGE}:${BUILD_TAG}"
-
-                    // המתנה עד שהשרת מוכן (לולאת בדיקת health)
-sh '''
-for i in {1..20}; do
-  if docker exec ${CONTAINER_NAME} curl -f http://localhost:3000/health; then
-      echo "✅ Server is healthy!"
-      break
-  fi
-  echo "⏳ Waiting for server..."
-  sleep 2
+            sh '''
+            for i in {1..20}; do
+    if curl -sf http://localhost:${PORT_EXTERNAL}/health; then
+        echo "✅ Server is healthy!"
+        break
+    fi
+    echo "⏳ Waiting for server..."
+    sleep 2
 done
-'''
 
-                }
-            }
+            '''
         }
+    }
+}
+
 
         stage('Verify Deployment') {
             steps {
