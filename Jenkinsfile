@@ -9,15 +9,6 @@ pipeline {
     }
 
     stages {
-        stage('Check OS') {
-    steps {
-        // לנסות Linux
-        sh 'uname -a'  
-
-        // לנסות Windows
-        // bat 'ver'
-    }
-}
         stage('Checkout') {
             steps {
                 echo '📥 Checking out code from Git...'
@@ -28,21 +19,21 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installing Node.js dependencies...'
-                bat 'npm install'
+                sh 'npm install'
             }
         }
 
         stage('Run Tests') {
             steps {
                 echo '✅ Running tests...'
-                bat 'npm test'
+                sh 'npm test'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
-                bat """
+                sh """
                     docker build -t ${DOCKER_IMAGE}:${BUILD_TAG} .
                     docker tag ${DOCKER_IMAGE}:${BUILD_TAG} ${DOCKER_IMAGE}:latest
                 """
@@ -52,7 +43,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo '🚀 Deploying application...'
-                bat """
+                sh """
                     # Stop and remove any existing container with the same name
                     docker ps -a -q --filter "name=${APP_NAME}" | xargs -r docker stop || true
                     docker ps -a -q --filter "name=${APP_NAME}" | xargs -r docker rm || true
@@ -72,7 +63,7 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 echo '✅ Verifying deployment...'
-                bat """
+                sh """
                     docker ps | grep ${CONTAINER_NAME}
                     curl -s http://localhost:3000 | grep "Jenkins CI/CD Demo"
                 """
@@ -92,13 +83,13 @@ pipeline {
 
         failure {
             echo '❌ Pipeline failed! Check the logs above.'
-            bat "docker stop ${CONTAINER_NAME} || true"
-            bat "docker rm ${CONTAINER_NAME} || true"
+            sh "docker stop ${CONTAINER_NAME} || true"
+            sh "docker rm ${CONTAINER_NAME} || true"
         }
 
         always {
             echo 'Cleaning up old images...'
-            bat """
+            sh """
                 docker images -q ${DOCKER_IMAGE} | grep -v ${BUILD_TAG} | grep -v latest | xargs -r docker rmi -f || true
             """
         }
