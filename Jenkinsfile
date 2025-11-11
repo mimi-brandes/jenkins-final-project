@@ -19,21 +19,21 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installing Node.js dependencies...'
-                sh 'npm install'
+                bat 'npm install'
             }
         }
 
         stage('Run Tests') {
             steps {
                 echo '✅ Running tests...'
-                sh 'npm test'
+                bat 'npm test'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
-                sh """
+                bat """
                     docker build -t ${DOCKER_IMAGE}:${BUILD_TAG} .
                     docker tag ${DOCKER_IMAGE}:${BUILD_TAG} ${DOCKER_IMAGE}:latest
                 """
@@ -43,7 +43,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo '🚀 Deploying application...'
-                sh """
+                bat """
                     # Stop and remove any existing container with the same name
                     docker ps -a -q --filter "name=${APP_NAME}" | xargs -r docker stop || true
                     docker ps -a -q --filter "name=${APP_NAME}" | xargs -r docker rm || true
@@ -63,7 +63,7 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 echo '✅ Verifying deployment...'
-                sh """
+                bat """
                     docker ps | grep ${CONTAINER_NAME}
                     curl -s http://localhost:3000 | grep "Jenkins CI/CD Demo"
                 """
@@ -83,13 +83,13 @@ pipeline {
 
         failure {
             echo '❌ Pipeline failed! Check the logs above.'
-            sh "docker stop ${CONTAINER_NAME} || true"
-            sh "docker rm ${CONTAINER_NAME} || true"
+            bat "docker stop ${CONTAINER_NAME} || true"
+            bat "docker rm ${CONTAINER_NAME} || true"
         }
 
         always {
             echo 'Cleaning up old images...'
-            sh """
+            bat """
                 docker images -q ${DOCKER_IMAGE} | grep -v ${BUILD_TAG} | grep -v latest | xargs -r docker rmi -f || true
             """
         }
