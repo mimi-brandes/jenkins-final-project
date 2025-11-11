@@ -1,4 +1,3 @@
-
 pipeline {
     agent any
     
@@ -18,6 +17,9 @@ pipeline {
         }
         
         stage('Install Dependencies') {
+            agent {
+                docker { image 'node:20' }
+            }
             steps {
                 echo '📦 Installing Node.js dependencies...'
                 sh 'npm install'
@@ -25,6 +27,9 @@ pipeline {
         }
         
         stage('Run Tests') {
+            agent {
+                docker { image 'node:20' }
+            }
             steps {
                 echo '✅ Running tests...'
                 sh 'npm test'
@@ -84,12 +89,12 @@ pipeline {
     
     post {
         success {
-            echo '''
+            echo """
             ✅✅✅ Pipeline Completed Successfully! ✅✅✅
             🚀 Application deployed and running on http://localhost:3000
             🐳 Docker image: ${DOCKER_IMAGE}:${BUILD_TAG}
             🎉 Build #${BUILD_NUMBER} is live!
-            '''
+            """
         }
         failure {
             echo '❌ Pipeline failed! Check the logs above.'
@@ -108,4 +113,4 @@ pipeline {
         }
     }
 }
-EOF
+
