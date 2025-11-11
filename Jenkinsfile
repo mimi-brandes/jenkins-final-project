@@ -189,7 +189,7 @@ pipeline {
                     sh "docker run -d --name ${CONTAINER_NAME} -p ${PORT_EXTERNAL}:3000 ${DOCKER_IMAGE}:${BUILD_TAG}"
 
                     // המתנה עד שהשרת מוכן (לולאת בדיקת health)
-                    sh '''
+sh '''
 for i in {1..20}; do
   if docker exec ${CONTAINER_NAME} curl -f http://localhost:3000/health; then
       echo "✅ Server is healthy!"
@@ -199,6 +199,7 @@ for i in {1..20}; do
   sleep 2
 done
 '''
+
                 }
             }
         }
