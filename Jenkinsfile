@@ -142,7 +142,7 @@ pipeline {
         DOCKER_IMAGE = "${APP_NAME}"
         BUILD_TAG = "${BUILD_NUMBER}"
         CONTAINER_NAME = "${APP_NAME}-${BUILD_NUMBER}"
-        PORT_EXTERNAL = 3000 + (${BUILD_NUMBER} % 1000) // פורט חיצוני ייחודי
+        PORT_EXTERNAL = 3000
     }
 
     stages {
@@ -179,25 +179,33 @@ pipeline {
             steps {
                 echo '🚀 Deploying application...'
                 script {
-                    // עצירת כל containers עם APP_NAME קיים
+                    // עצירת containers קיימים
                     sh '''
                         docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
                         docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
                     '''
 
-                    // הרצת container חדש עם פורט חיצוני דינמי
+                    // הרצת container חדש
                     sh "docker run -d --name ${CONTAINER_NAME} -p ${PORT_EXTERNAL}:3000 ${DOCKER_IMAGE}:${BUILD_TAG}"
 
-                    // המתנה קצרה ובדיקת בריאות
-                    sh 'sleep 5'
-                    sh "curl -f http://localhost:${PORT_EXTERNAL}/health || exit 1"
+                    // המתנה עד שהשרת מוכן (לולאת בדיקת health)
+                    sh '''
+                    for i in {1..20}; do
+                        if curl -f http://localhost:${PORT_EXTERNAL}/health; then
+                            echo "✅ Server is healthy!"
+                            break
+                        fi
+                        echo "⏳ Waiting for server..."
+                        sleep 2
+                    done
+                    '''
                 }
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                echo '✅ Verifying deployment...'
+                echo '🔍 Verifying deployment...'
                 script {
                     sh "docker ps | grep ${CONTAINER_NAME}"
                     sh "curl -s http://localhost:${PORT_EXTERNAL} | grep 'Jenkins CI/CD Demo'"
@@ -224,7 +232,7 @@ pipeline {
             }
         }
         always {
-            echo 'Cleaning up old images...'
+            echo '🧹 Cleaning up old images...'
             script {
                 sh '''
                     docker images | grep ${DOCKER_IMAGE} | grep -v latest | grep -v ${BUILD_TAG} | awk '{print $3}' | xargs -r docker rmi -f || true
