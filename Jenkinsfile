@@ -16,20 +16,6 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
-            steps {
-                echo '📦 Installing Node.js dependencies...'
-                sh 'npm install'
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                echo '✅ Running tests...'
-                sh 'npm test'
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
@@ -40,11 +26,20 @@ pipeline {
             }
         }
 
+        stage('Test Docker Image') {
+            steps {
+                echo '🧪 Running tests inside Docker container...'
+                sh """
+                    docker run --rm ${DOCKER_IMAGE}:${BUILD_TAG} npm test
+                """
+            }
+        }
+
         stage('Deploy') {
             steps {
                 echo '🚀 Deploying application...'
                 sh """
-                    # Stop and remove any existing container with the same name
+                    # Stop and remove any old container
                     docker ps -a -q --filter "name=${APP_NAME}" | xargs -r docker stop || true
                     docker ps -a -q --filter "name=${APP_NAME}" | xargs -r docker rm || true
 
