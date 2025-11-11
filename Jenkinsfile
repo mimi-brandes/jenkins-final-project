@@ -190,15 +190,15 @@ pipeline {
 
                     // המתנה עד שהשרת מוכן (לולאת בדיקת health)
                     sh '''
-                    for i in {1..20}; do
-                        if curl -f http://localhost:${PORT_EXTERNAL}/health; then
-                            echo "✅ Server is healthy!"
-                            break
-                        fi
-                        echo "⏳ Waiting for server..."
-                        sleep 2
-                    done
-                    '''
+for i in {1..20}; do
+  if docker exec ${CONTAINER_NAME} curl -f http://localhost:3000/health; then
+      echo "✅ Server is healthy!"
+      break
+  fi
+  echo "⏳ Waiting for server..."
+  sleep 2
+done
+'''
                 }
             }
         }
