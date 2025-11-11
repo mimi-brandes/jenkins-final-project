@@ -55,26 +55,44 @@ pipeline {
             }
         }
         
+        // stage('Deploy') {
+        //     steps {
+        //         echo '🚀 Deploying application...'
+        //         script {
+        //             // Stop old containers
+        //             sh '''
+        //                 docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
+        //                 docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
+        //             '''
+                    
+        //             // Run new container
+        //             sh "docker run -d --name ${CONTAINER_NAME} -p 3000:3000 ${DOCKER_IMAGE}:${BUILD_TAG}"
+                    
+        //             // Wait and test
+        //             sh 'sleep 5'
+        //             sh 'curl -f http://localhost:3000/health || exit 1'
+        //         }
+        //     }
+        // }
         stage('Deploy') {
-            steps {
-                echo '🚀 Deploying application...'
-                script {
-                    // Stop old containers
-                    sh '''
-                        docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
-                        docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
-                    '''
-                    
-                    // Run new container
-                    sh "docker run -d --name ${CONTAINER_NAME} -p 3000:3000 ${DOCKER_IMAGE}:${BUILD_TAG}"
-                    
-                    // Wait and test
-                    sh 'sleep 5'
-                    sh 'curl -f http://localhost:3000/health || exit 1'
-                }
-            }
+    steps {
+        echo '🚀 Deploying application...'
+        script {
+            // עצור ומחק containers ישנים של האפליקציה
+            sh '''
+                docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
+                docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
+            '''
+
+            // הרץ container חדש
+            sh "docker run -d --name ${CONTAINER_NAME} -p 3000:3000 ${DOCKER_IMAGE}:${BUILD_TAG}"
+
+            // המתנה ובדיקה
+            sh 'sleep 5'
+            sh 'curl -f http://localhost:3000/ || exit 1'
         }
-        
+    }
+}
         stage('Verify Deployment') {
             steps {
                 echo '✅ Verifying deployment...'
