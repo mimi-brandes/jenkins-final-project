@@ -9,6 +9,15 @@ pipeline {
     }
 
     stages {
+        stage('Check OS') {
+    steps {
+        // לנסות Linux
+        sh 'uname -a'  
+
+        // לנסות Windows
+        // bat 'ver'
+    }
+}
         stage('Checkout') {
             steps {
                 echo '📥 Checking out code from Git...'
