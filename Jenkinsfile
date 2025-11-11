@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'windows' }
 
     environment {
         APP_NAME = "jenkins-demo-app"
