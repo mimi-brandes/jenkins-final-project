@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        docker { image 'node:18-alpine' } // Node.js מותקן מראש, קל, קטן
+    }
 
     environment {
         APP_NAME = "jenkins-demo-app"
@@ -13,18 +15,6 @@ pipeline {
             steps {
                 echo '📥 Checking out code from Git...'
                 checkout scm
-            }
-        }
-
-        stage('Install Node.js') {
-            steps {
-                echo '💻 Installing Node.js on Agent...'
-                sh '''
-                curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-                apt-get install -y nodejs
-                node -v
-                npm -v
-                '''
             }
         }
 
@@ -45,25 +35,21 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
-                script {
-                    sh "docker build -t ${DOCKER_IMAGE}:${BUILD_TAG} ."
-                    sh "docker tag ${DOCKER_IMAGE}:${BUILD_TAG} ${DOCKER_IMAGE}:latest"
-                }
+                sh "docker build -t ${DOCKER_IMAGE}:${BUILD_TAG} ."
+                sh "docker tag ${DOCKER_IMAGE}:${BUILD_TAG} ${DOCKER_IMAGE}:latest"
             }
         }
 
         stage('Deploy') {
             steps {
                 echo '🚀 Deploying application...'
-                script {
-                    sh '''
-                        docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
-                        docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
-                        docker run -d --name ${CONTAINER_NAME} -p 3000:3000 ${DOCKER_IMAGE}:${BUILD_TAG}
-                        sleep 5
-                        curl -f http://localhost:3000/health || exit 1
-                    '''
-                }
+                sh '''
+                    docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
+                    docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
+                    docker run -d --name ${CONTAINER_NAME} -p 3000:3000 ${DOCKER_IMAGE}:${BUILD_TAG}
+                    sleep 5
+                    curl -f http://localhost:3000/health || exit 1
+                '''
             }
         }
 
