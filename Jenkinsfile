@@ -1,14 +1,18 @@
-
 pipeline {
-    agent any
-    
+    agent {
+        docker {
+            image 'node:18-alpine'   // משתמש ב-image עם Node.js מובנה
+            args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock' // מאפשר להריץ docker commands
+        }
+    }
+
     environment {
         APP_NAME = "jenkins-demo-app"
         DOCKER_IMAGE = "${APP_NAME}"
         BUILD_TAG = "${BUILD_NUMBER}"
         CONTAINER_NAME = "${APP_NAME}-${BUILD_NUMBER}"
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
@@ -16,21 +20,21 @@ pipeline {
                 checkout scm
             }
         }
-        
+
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installing Node.js dependencies...'
                 sh 'npm install'
             }
         }
-        
+
         stage('Run Tests') {
             steps {
                 echo '✅ Running tests...'
                 sh 'npm test'
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
@@ -40,7 +44,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Test Docker Image') {
             steps {
                 echo '🧪 Testing Docker image...'
@@ -49,27 +53,22 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Deploy') {
             steps {
                 echo '🚀 Deploying application...'
                 script {
-                    // Stop old containers
                     sh '''
                         docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
                         docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
                     '''
-                    
-                    // Run new container
                     sh "docker run -d --name ${CONTAINER_NAME} -p 3000:3000 ${DOCKER_IMAGE}:${BUILD_TAG}"
-                    
-                    // Wait and test
                     sh 'sleep 5'
                     sh 'curl -f http://localhost:3000/health || exit 1'
                 }
             }
         }
-        
+
         stage('Verify Deployment') {
             steps {
                 echo '✅ Verifying deployment...'
@@ -81,15 +80,15 @@ pipeline {
             }
         }
     }
-    
+
     post {
         success {
-            echo '''
+            echo """
             ✅✅✅ Pipeline Completed Successfully! ✅✅✅
             🚀 Application deployed and running on http://localhost:3000
             🐳 Docker image: ${DOCKER_IMAGE}:${BUILD_TAG}
             🎉 Build #${BUILD_NUMBER} is live!
-            '''
+            """
         }
         failure {
             echo '❌ Pipeline failed! Check the logs above.'
@@ -108,4 +107,3 @@ pipeline {
         }
     }
 }
-EOF
