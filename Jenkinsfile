@@ -1,7 +1,5 @@
 pipeline {
-    agent {
-        docker { image 'node:18-alpine' } // Node.js מותקן מראש, קל, קטן
-    }
+    agent any
 
     environment {
         APP_NAME = "jenkins-demo-app"
@@ -21,45 +19,47 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installing Node.js dependencies...'
-                sh 'npm install'
+                bat 'npm install'
             }
         }
 
         stage('Run Tests') {
             steps {
                 echo '✅ Running tests...'
-                sh 'npm test'
+                bat 'npm test'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
-                sh "docker build -t ${DOCKER_IMAGE}:${BUILD_TAG} ."
-                sh "docker tag ${DOCKER_IMAGE}:${BUILD_TAG} ${DOCKER_IMAGE}:latest"
+                bat """
+                docker build -t ${DOCKER_IMAGE}:${BUILD_TAG} .
+                docker tag ${DOCKER_IMAGE}:${BUILD_TAG} ${DOCKER_IMAGE}:latest
+                """
             }
         }
 
         stage('Deploy') {
             steps {
                 echo '🚀 Deploying application...'
-                sh '''
-                    docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
-                    docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
-                    docker run -d --name ${CONTAINER_NAME} -p 3000:3000 ${DOCKER_IMAGE}:${BUILD_TAG}
-                    sleep 5
-                    curl -f http://localhost:3000/health || exit 1
-                '''
+                bat """
+                FOR /F "tokens=1" %%i IN ('docker ps -a -q --filter "name=${APP_NAME}"') DO docker stop %%i || REM
+                FOR /F "tokens=1" %%i IN ('docker ps -a -q --filter "name=${APP_NAME}"') DO docker rm %%i || REM
+                docker run -d --name ${CONTAINER_NAME} -p 3000:3000 ${DOCKER_IMAGE}:${BUILD_TAG}
+                timeout /t 5
+                curl -f http://localhost:3000/health || exit 1
+                """
             }
         }
 
         stage('Verify Deployment') {
             steps {
                 echo '✅ Verifying deployment...'
-                sh '''
-                    docker ps | grep ${CONTAINER_NAME}
-                    curl -s http://localhost:3000 | grep "Jenkins CI/CD Demo"
-                '''
+                bat """
+                docker ps | findstr ${CONTAINER_NAME}
+                curl -s http://localhost:3000 | findstr "Jenkins CI/CD Demo"
+                """
             }
         }
     }
@@ -75,14 +75,14 @@ pipeline {
         }
         failure {
             echo '❌ Pipeline failed! Check the logs above.'
-            sh "docker stop ${CONTAINER_NAME} 2>/dev/null || true"
-            sh "docker rm ${CONTAINER_NAME} 2>/dev/null || true"
+            bat "docker stop ${CONTAINER_NAME} 2>NUL || REM"
+            bat "docker rm ${CONTAINER_NAME} 2>NUL || REM"
         }
         always {
             echo 'Cleaning up old images...'
-            sh '''
-                docker images | grep ${DOCKER_IMAGE} | grep -v latest | grep -v ${BUILD_TAG} | awk '{print $3}' | xargs -r docker rmi -f || true
-            '''
+            bat """
+            FOR /F "tokens=1" %%i IN ('docker images -q ${DOCKER_IMAGE} ^| findstr /v ${BUILD_TAG} ^| findstr /v latest') DO docker rmi -f %%i || REM
+            """
         }
     }
 }
