@@ -175,26 +175,29 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+       stage('Deploy') {
     steps {
         echo '🚀 Deploying application...'
         script {
+            // עצור ומחק containers ישנים של האפליקציה
             sh '''
                 docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker stop || true
                 docker ps -a | grep ${APP_NAME} | awk '{print $1}' | xargs -r docker rm || true
             '''
-            sh "docker run -d --name ${CONTAINER_NAME} -p ${PORT_EXTERNAL}:3000 jenkins-demo-app:35"
 
+            // הרץ container חדש
+            sh "docker run -d --name ${CONTAINER_NAME} -p ${PORT_EXTERNAL}:3000 ${DOCKER_IMAGE}:${BUILD_TAG}"
+
+            // המתנה ובדיקת ה-health עם loop
             sh '''
-            for i in {1..20}; do
-    if curl -sf http://localhost:${PORT_EXTERNAL}/health; then
-        echo "✅ Server is healthy!"
-        break
-    fi
-    echo "⏳ Waiting for server..."
-    sleep 2
-done
-
+                for i in {1..20}; do
+                    if curl -sf http://host.docker.internal:${PORT_EXTERNAL}/health; then
+                        echo "✅ Server is healthy!"
+                        break
+                    fi
+                    echo "⏳ Waiting for server..."
+                    sleep 2
+                done
             '''
         }
     }
